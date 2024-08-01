@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autocompletado y Autosugerencia con Trie</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(120deg, #675798, #180e8c);
+        }
+        h1 {
+            text-align: center;    
+        }
+        
+        .autocomplete-suggestions {
+            border: 1px solid #ced4da;
+            max-height: 200px;
+            overflow-y: auto;
+            background-color: #fff;
+            position: absolute;
+            z-index: 1000;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .autocomplete-suggestion {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .autocomplete-suggestion:hover, .autocomplete-suggestion.active {
+            background-color: #e9ecef;
+        }
+        .form-container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .add-word-form {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .add-word-form input {
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+        #trie-visualization {
+            margin-top: 20px;
+            padding: 10px;
+            background: #fff;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            font-family: monospace;
+            overflow-x: auto;
+        }
+        .node circle {
+            fill: #fff;
+            stroke: steelblue;
+            stroke-width: 3px;
+        }
+        .node text {
+            font: 12px sans-serif;
+        }
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 2px;
+        }
+        .similarity-badge {
+            font-size: 12px;
+            background-color: #17a2b8;
+            color: #fff;
+            border-radius: 10px;
+            padding: 2px 8px;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <h1 class="mb-4">Autocompletado y Autosugerencia con Árbol Trie(de prefijos)</h1>
+            <div class="add-word-form">
+                <input type="text" id="new-word-input" class="form-control" placeholder="Agregar una nueva palabra">
+                <button id="add-word-button" class="btn btn-primary">Agregar Palabra</button>
+            </div>
+            <div class="form-group position-relative">
+                <label for="search-input">Buscar:</label>
+                <input type="text" id="search-input" class="form-control" autocomplete="off">
+                <div id="suggestions" class="autocomplete-suggestions"></div>
+            </div>
+            <div id="trie-visualization"></div>
+        </div>
+    </div>
+
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script>
+        class TrieNode {
+            constructor() {
+                this.children = {};
+                this.isEndOfWord = false;
+            }
+        }
+
+        class Trie {
+            constructor() {
+                this.root = new TrieNode();
+            }
+
+            insert(word) {
+                let node = this.root;
+                for (let char of word) {
+                    if (!node.children[char]) {
+                        node.children[char] = new TrieNode();
+                    }
+                    node = node.children[char];
+                }
+                node.isEndOfWord = true;
+            }
+
+            wordsWithPrefix(prefix) {
+                let node = this.root;
+                for (let char of prefix) {
+                    if (!node.children[char]) {
+                        return [];
+                    }
+                    node = node.children[char];
+                }
+                return this._collectAllWords(node, prefix);
+            }
+
+            _collectAllWords(node, prefix) {
+                let words = [];
+                if (node.isEndOfWord) {
+                    words.push(prefix);
+                }
+                for (let char in node.children) {
+                    words.push(...this._collectAllWords(node.children[char], prefix + char));
+                }
+                return words;
+            }
+
+            getSubTrie(prefix) {
+                let node = this.root;
+                for (let char of prefix) {
+                    if (!node.children[char]) {
+                        return null;
+                    }
+                    node = node.children[char];
+                }
+                return node;
+            }
+        }
+
+        function calculateSimilarity(word1, word2) {
+            let longer = word1;
+            let shorter = word2;
+            if (word1.length < word2.length) {
+                longer = word2;
+                shorter = word1;
+            }
+            const longerLength = longer.length;
+            if (longerLength === 0) {
+                return 1.0;
+            }
+            return ((longerLength - editDistance(longer, shorter)) / longerLength) * 100;
+        }
+
+        function editDistance(s1, s2) {
+            s1 = s1.toLowerCase();
+            s2 = s2.toLowerCase();
+
+            const costs = [];
+            for (let i = 0; i <= s1.length; i++) {
+                let lastValue = i;
+                for (let j = 0; j <= s2.length; j++) {
+                    if (i === 0) {
+                        costs[j] = j;
+                    } else {
+                        if (j > 0) {
+                            let newValue = costs[j - 1];
+                            if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+                                newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                            }
+                            costs[j - 1] = lastValue;
+                            lastValue = newValue;
+                        }
+                    }
+                }
+                if (i > 0) {
+                    costs[s2.length] = lastValue;
+                }
+            }
+            return costs[s2.length];
+        }
+
+        const trie = new Trie();
+
+        const phpReservedWords = [
+            'apple', 'app', 'application', 'apartment',
+            "abstract", "and", "array", "as", "break", "callable", "case", "catch", "class",
+            "clone", "const", "continue", "declare", "default", "do", "echo", "else", "elseif",
+            "enddeclare", "endfor", "endforeach", "endif", "endswitch", "endwhile", "eval", "exit",
+            "extends", "final", "finally", "fn", "for", "foreach", "function", "global", "goto", 
+            "if", "implements", "include", "include_once", "instanceof", "insteadof", "interface", 
+            "isset", "list", "match", "namespace", "new", "or", "print", "private", "protected", 
+            "public", "readonly", "require", "require_once", "return", "static", "switch", "throw", 
+            "trait", "try", "unset", "use", "var", "while", "xor", "yield"
+        ];
+
+        phpReservedWords.forEach(word => trie.insert(word));
+
+        const searchInput = document.getElementById('search-input');
+        const suggestionsContainer = document.getElementById('suggestions');
+        const newWordInput = document.getElementById('new-word-input');
+        const addWordButton = document.getElementById('add-word-button');
+
+        addWordButton.addEventListener('click', () => {
+            const newWord = newWordInput.value.trim();
+            if (newWord) {
+                trie.insert(newWord);
+                newWordInput.value = '';
+                alert(`Palabra "${newWord}" añadida al trie!`);
+            }
+        });
+
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.trim();
+            const suggestions = trie.wordsWithPrefix(query);
+
+            suggestionsContainer.innerHTML = '';
+            suggestions.forEach(word => {
+                const similarity = calculateSimilarity(query, word);
+                const suggestionItem = document.createElement('div');
+                suggestionItem.className = 'autocomplete-suggestion';
+                suggestionItem.innerHTML = `${word} <span class="similarity-badge">${similarity.toFixed(2)}%</span>`;
+                suggestionsContainer.appendChild(suggestionItem);
+
+                suggestionItem.addEventListener('click', () => {
+                    searchInput.value = word;
+                    suggestionsContainer.innerHTML = '';
+                });
+            });
+
+            updateVisualization(query);
+        });
+
+        function updateVisualization(prefix) {
+            const subTrie = trie.getSubTrie(prefix);
+            const visualization = document.getElementById('trie-visualization');
+            visualization.innerHTML = '';
+            if (!subTrie) return;
+
+            const root = d3.hierarchy(subTrie, d => Object.keys(d.children).map(key => ({ ...d.children[key], key })));
+            const width = 800;
+            const height = 600;
+            const dx = 20;
+            const dy = width / 4;
+            const tree = d3.tree().nodeSize([dx, dy]);
+            const diagonal = d3.linkVertical().x(d => d.x).y(d => d.y);
+
+            const svg = d3.create("svg")
+                .attr("viewBox", [-width / 2, -dx, width, height])
+                .style("font", "10px sans-serif")
+                .style("user-select", "none");
+
+            const g = svg.append("g")
+                .attr("font-family", "sans-serif")
+                .attr("font-size", 10)
+                .attr("transform", "translate(" + width / 2 + "," + dx + ")");
+
+            const link = g.append("g")
+                .attr("fill", "none")
+                .attr("stroke", "#555")
+                .attr("stroke-opacity", 0.4)
+                .attr("stroke-width", 1.5)
+                .selectAll("path")
+                .data(tree(root).links())
+                .join("path")
+                .attr("d", diagonal);
+
+            const node = g.append("g")
+                .attr("stroke-linejoin", "round")
+                .attr("stroke-width", 3)
+                .selectAll("g")
+                .data(root.descendants())
+                .join("g")
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+
+            node.append("circle")
+                .attr("fill", d => d.data.isEndOfWord ? "lightcoral" : "#999")
+                .attr("r", 5);
+
+            node.append("text")
+                .attr("dy", "0.31em")
+                .attr("x", d => d.children ? -6 : 6)
+                .attr("text-anchor", d => d.children ? "end" : "start")
+                .text(d => d.data.key)
+                .clone(true).lower()
+                .attr("stroke", "white");
+
+            visualization.appendChild(svg.node());
+        }
+
+        updateVisualization('');
+    </script>
+</body>
+</html>

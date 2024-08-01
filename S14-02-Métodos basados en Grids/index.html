@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Restaurantes</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            font-family: Arial, sans-serif;
+            background-color: #2c2c2c;
+            color: white;
+        }
+
+        #map {
+            flex-grow: 1;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            margin: 10px;
+        }
+
+        .controls {
+            background: #333;
+            padding: 10px 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .leaflet-popup-content-wrapper {
+            background-color: #333;
+            color: white;
+            border-radius: 8px;
+        }
+
+        .leaflet-popup-content {
+            margin: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .leaflet-popup-tip {
+            background: #333;
+        }
+
+        .leaflet-routing-container {
+            background: rgba(0, 0, 0, 0.8);
+            color: rgb(0, 0, 0);
+        }
+
+        .leaflet-routing-alt {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        h1 {
+            text-align: center;
+            margin: 20px 0;
+            color: black;
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
+</head>
+<body>
+    <h1>Sistema de Geolocalización para Restaurantes</h1>
+    <div class="controls">
+        <button id="mostrarCuadricula" class="btn btn-primary">Mostrar Cuadrícula</button>
+        <button id="representarCiudad" class="btn btn-success">Representar Ciudad como Cuadrícula</button>
+        <button id="mostrarRestaurantesEnCeldas" class="btn btn-info">Mostrar Restaurantes en Celdas</button>
+        <button id="mostrarRestaurantes" class="btn btn-warning">Mostrar Restaurantes</button>
+        <button id="buscarMasCercano" class="btn btn-danger">Buscar Restaurante Más Cercano</button>
+        <button id="filtrarPorCocina" class="btn btn-secondary">Filtrar por Tipo de Cocina</button>
+        <button id="resetearMapa" class="btn btn-dark">Resetear Mapa</button>
+    </div>
+    <div id="map"></div>
+    
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script>
+        class Restaurant {
+            constructor(name, latitude, longitude, description = '', cuisine = 'General') {
+                this.name = name;
+                this.latitude = latitude;
+                this.longitude = longitude;
+                this.description = description;
+                this.cuisine = cuisine;
+            }
+        }
+
+        class Grid {
+            constructor(size) {
+                this.size = size;
+                this.cells = new Map();
+            }
+
+            getCellKey(latitude, longitude) {
+                const x = Math.floor(latitude / this.size);
+                const y = Math.floor(longitude / this.size);
+                return `${x},${y}`;
+            }
+
+            addRestaurant(restaurant) {
+                const key = this.getCellKey(restaurant.latitude, restaurant.longitude);
+                if (!this.cells.has(key)) {
+                    this.cells.set(key, []);
+                }
+                this.cells.get(key).push(restaurant);
+            }
+
+            getRestaurantsInCell(latitude, longitude) {
+                const key = this.getCellKey(latitude, longitude);
+                return this.cells.get(key) || [];
+            }
+
+            getNearbyRestaurants(latitude, longitude) {
+                const x = Math.floor(latitude / this.size);
+                const y = Math.floor(longitude / this.size);
+                const nearbyRestaurants = [];
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        const key = `${x + dx},${y + dy}`;
+                        if (this.cells.has(key)) {
+                            nearbyRestaurants.push(...this.cells.get(key));
+                        }
+                    }
+                }
+                return nearbyRestaurants;
+            }
+
+            getNearestRestaurant(latitude, longitude) {
+                const nearbyRestaurants = this.getNearbyRestaurants(latitude, longitude);
+                let nearestRestaurant = null;
+                let minDistance = Infinity;
+
+                nearbyRestaurants.forEach(restaurant => {
+                    const distance = this.calculateDistance(latitude, longitude, restaurant.latitude, restaurant.longitude);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearestRestaurant = restaurant;
+                    }
+                });
+
+                return nearestRestaurant;
+            }
+
+            calculateDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371; // km
+                const dLat = this.deg2rad(lat2 - lat1);
+                const dLon = this.deg2rad(lon2 - lon1);
+                const a = 
+                    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) * 
+                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                return R * c;
+            }
+
+            deg2rad(deg) {
+                return deg * (Math.PI / 180);
+            }
+
+            filterByCuisine(cuisine) {
+                const filteredRestaurants = [];
+                this.cells.forEach(cell => {
+                    cell.forEach(restaurant => {
+                        if (restaurant.cuisine.toLowerCase() === cuisine.toLowerCase()) {
+                            filteredRestaurants.push(restaurant);
+                        }
+                    });
+                });
+                return filteredRestaurants;
+            }
+        }
+
+        const grid = new Grid(0.01);
+        const restaurants = [
+            new Restaurant("Pizza Place", -15.839107859954558, -70.02801811230474, "Deliciosa pizza con una variedad de ingredientes.", "Italiana"),
+            new Restaurant("Burger Joint", -15.840927059831623, -70.02972191449183, "Las mejores hamburguesas de la ciudad.", "Americana"),
+            new Restaurant("Sushi Bar", -15.840471992824964, -70.02768269180903, "Sushi y sashimi fresco.", "Japonesa"),
+            new Restaurant("Pasta House", -15.836958971751043, -70.02929033881635, "Auténtica pasta italiana.", "Italiana"),
+            new Restaurant("Taco Stand", -15.83482495749946, -70.02706083300103, "Tacos sabrosos con varios rellenos.", "Mexicana"),
+            new Restaurant("Steak House", -15.8345516284358, -70.02820578883524, "Jugosos filetes cocinados a la perfección.", "Americana")
+        ];
+
+        restaurants.forEach(restaurant => grid.addRestaurant(restaurant));
+
+        document.getElementById('mostrarRestaurantes').addEventListener('click', () => {
+            const lat = -15.837452109278242;
+            const lon = -70.02778837003915;
+            initMap(lat, lon);
+            displayNearbyRestaurants(lat, lon);
+        });
+
+        document.getElementById('buscarMasCercano').addEventListener('click', () => {
+            const lat = -15.837452109278242;
+            const lon = -70.02778837003915;
+            const nearestRestaurant = grid.getNearestRestaurant(lat, lon);
+            if (nearestRestaurant) {
+                alert(`El restaurante más cercano es ${nearestRestaurant.name} en (${nearestRestaurant.latitude}, ${nearestRestaurant.longitude}).`);
+                drawRoute(lat, lon, nearestRestaurant.latitude, nearestRestaurant.longitude);
+                changeRestaurantColor(nearestRestaurant.latitude, nearestRestaurant.longitude);
+                showPopups(lat, lon, nearestRestaurant.latitude, nearestRestaurant.longitude);
+                centerMapOnRoute(lat, lon, nearestRestaurant.latitude, nearestRestaurant.longitude);
+            } else {
+                alert("No se encontraron restaurantes cercanos.");
+            }
+        });
+
+        document.getElementById('filtrarPorCocina').addEventListener('click', () => {
+            const cuisine = prompt("Ingrese el tipo de cocina a filtrar (e.g., 'Italiana', 'Americana', 'Japonesa', 'Mexicana'):");
+            if (cuisine) {
+                const lat = -15.837452109278242;
+                const lon = -70.02778837003915;
+                filterRestaurantsByCuisine(cuisine, lat, lon);
+            }
+        });
+
+        document.getElementById('resetearMapa').addEventListener('click', () => {
+            const lat = -15.837452109278242;
+            const lon = -70.02778837003915;
+            initMap(lat, lon);
+        });
+
+        document.getElementById('mostrarCuadricula').addEventListener('click', () => {
+            const lat = -15.837452109278242;
+            const lon = -70.02778837003915;
+            initMap(lat, lon);
+            drawGrid();
+        });
+
+        document.getElementById('representarCiudad').addEventListener('click', () => {
+            const lat = -15.837452109278242;
+            const lon = -70.02778837003915;
+            initMap(lat, lon);
+            drawCityGrid();
+        });
+
+        document.getElementById('mostrarRestaurantesEnCeldas').addEventListener('click', () => {
+            const lat = -15.837452109278242;
+            const lon = -70.02778837003915;
+            initMap(lat, lon);
+            showRestaurantsInGrid();
+        });
+
+        let map;
+        let restaurantMarkers = [];
+        let userMarker;
+
+        function initMap(lat, lon) {
+            if (map) {
+                map.remove();
+            }
+            map = L.map('map').setView([lat, lon], 15);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            userMarker = L.marker([lat, lon], {icon: L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] })}).addTo(map)
+                .bindPopup('<b>Ubicación de la Persona</b><br>Esta es la ubicación estática de la persona.')
+                .openPopup();
+
+            displayNearbyRestaurantsOnMap(map, lat, lon);
+        }
+
+        function displayNearbyRestaurants(lat, lon) {
+            const nearbyRestaurants = grid.getNearbyRestaurants(lat, lon);
+            console.log(`Restaurantes cercanos a (${lat}, ${lon}):`);
+            nearbyRestaurants.forEach(restaurant => {
+                console.log(`- ${restaurant.name} en (${restaurant.latitude}, ${restaurant.longitude})`);
+            });
+        }
+
+        function displayNearbyRestaurantsOnMap(map, lat, lon) {
+            restaurantMarkers.forEach(marker => marker.remove());
+            restaurantMarkers = [];
+            const nearbyRestaurants = grid.getNearbyRestaurants(lat, lon);
+            nearbyRestaurants.forEach(restaurant => {
+                const marker = L.marker([restaurant.latitude, restaurant.longitude], {icon: L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] })})
+                    .addTo(map)
+                    .bindPopup(`<b>${restaurant.name}</b><br>${restaurant.description}<br>Distancia: ${grid.calculateDistance(lat, lon, restaurant.latitude, restaurant.longitude).toFixed(2)} km`);
+                restaurantMarkers.push(marker);
+            });
+        }
+
+        function filterRestaurantsByCuisine(cuisine, lat, lon) {
+            const filteredRestaurants = grid.filterByCuisine(cuisine);
+            if (filteredRestaurants.length > 0) {
+                restaurantMarkers.forEach(marker => marker.remove());
+                restaurantMarkers = [];
+                filteredRestaurants.forEach(restaurant => {
+                    const marker = L.marker([restaurant.latitude, restaurant.longitude], {icon: L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] })})
+                        .addTo(map)
+                        .bindPopup(`<b>${restaurant.name}</b><br>${restaurant.description}<br>Tipo de Cocina: ${restaurant.cuisine}<br>Distancia: ${grid.calculateDistance(lat, lon, restaurant.latitude, restaurant.longitude).toFixed(2)} km`);
+                    restaurantMarkers.push(marker);
+                });
+            } else {
+                alert("No se encontraron restaurantes con el tipo de cocina especificado.");
+            }
+        }
+
+        function drawRoute(lat1, lon1, lat2, lon2) {
+            L.Routing.control({
+                waypoints: [
+                    L.latLng(lat1, lon1),
+                    L.latLng(lat2, lon2)
+                ],
+                routeWhileDragging: true,
+                createMarker: function(i, waypoint, n) {
+                    return L.marker(waypoint.latLng);
+                },
+                lineOptions: {
+                    styles: [{color: 'red', opacity: 1, weight: 5}]
+                }
+            }).addTo(map);
+        }
+
+        function changeRestaurantColor(lat, lon) {
+            restaurantMarkers.forEach(marker => {
+                if (marker.getLatLng().lat === lat && marker.getLatLng().lng === lon) {
+                    marker.setIcon(L.icon({ iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-red.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] }));
+                }
+            });
+        }
+
+        function showPopups(userLat, userLon, restLat, restLon) {
+            userMarker.openPopup();
+            restaurantMarkers.forEach(marker => {
+                if (marker.getLatLng().lat === restLat && marker.getLatLng().lng === restLon) {
+                    marker.openPopup();
+                }
+            });
+        }
+
+        function centerMapOnRoute(lat1, lon1, lat2, lon2) {
+            const bounds = L.latLngBounds([
+                [lat1, lon1],
+                [lat2, lon2]
+            ]);
+            map.fitBounds(bounds);
+        }
+
+        function drawGrid() {
+            const cellSize = 0.01;
+            const restaurants = grid.getNearbyRestaurants(map.getCenter().lat, map.getCenter().lng);
+
+            restaurants.forEach(restaurant => {
+                const key = grid.getCellKey(restaurant.latitude, restaurant.longitude);
+                const [x, y] = key.split(',').map(Number);
+                const bounds = [[x * cellSize, y * cellSize], [(x + 1) * cellSize, (y + 1) * cellSize]];
+                L.rectangle(bounds, { color: "#ff7800", weight: 1 }).addTo(map);
+            });
+        }
+
+        function drawCityGrid() {
+            const bounds = map.getBounds();
+            const northEast = bounds.getNorthEast();
+            const southWest = bounds.getSouthWest();
+            const cellSize = 0.01;
+
+            for (let lat = southWest.lat; lat <= northEast.lat; lat += cellSize) {
+                for (let lon = southWest.lng; lon <= northEast.lng; lon += cellSize) {
+                    const cellCenter = [(lat + lat + cellSize) / 2, (lon + lon + cellSize) / 2];
+                    L.marker(cellCenter).addTo(map).bindPopup(`Celda: ${grid.getCellKey(lat, lon)}`);
+                }
+            }
+        }
+
+        function showRestaurantsInGrid() {
+            const cellSize = 0.01;
+            const restaurants = grid.getNearbyRestaurants(map.getCenter().lat, map.getCenter().lng);
+
+            restaurants.forEach(restaurant => {
+                const key = grid.getCellKey(restaurant.latitude, restaurant.longitude);
+                const [x, y] = key.split(',').map(Number);
+                const bounds = [[x * cellSize, y * cellSize], [(x + 1) * cellSize, (y + 1) * cellSize]];
+                const cellCenter = [(x + 0.5) * cellSize, (y + 0.5) * cellSize];
+                L.marker(cellCenter).addTo(map).bindPopup(`Restaurantes en celda: ${grid.getRestaurantsInCell(restaurant.latitude, restaurant.longitude).map(r => r.name).join(', ')}`);
+            });
+        }
+
+        // Initialize map on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const lat = -15.837452109278242;
+            const lon = -70.02778837003915;
+            initMap(lat, lon);
+        });
+    </script>
+</body>
+</html>

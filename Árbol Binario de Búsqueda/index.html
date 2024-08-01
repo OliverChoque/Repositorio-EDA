@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualización del Árbol Binario de Búsqueda</title>
+
+    <!-- Agregar Bootstrap desde Cloudflare -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.1.3/css/bootstrap.min.css">
+
+    <!-- Agregar Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Estilo General */
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f8f9fa;
+            color: #212529;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+            overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .dark-mode {
+            background-color: #1f1f1f;
+            color: #ffffff;
+        }
+
+        .container {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 95%;
+            height: 95vh;
+            max-width: 1400px;
+            box-sizing: border-box;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .dark-mode .container {
+            background: #2a2a2a;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        .input-group {
+            max-width: 300px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        input.form-control {
+            height: 40px;
+            border-radius: 8px;
+            box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.1);
+            border: 1px solid #ddd;
+            transition: all 0.3s ease;
+        }
+
+        input.form-control:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+
+        .dark-mode input.form-control {
+            background-color: #3c3f41;
+            border-color: #444;
+            color: #fff;
+        }
+
+        button.btn {
+            height: 40px;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        button.btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 91, 176, 0.6);
+        }
+
+        /* Botones con colores variados */
+        .btn-insert {
+            background-color: #04eaff; /* Verde para insertar */
+            color: white;
+        }
+
+        .btn-insert:hover {
+            background-color: #0aff27;
+        }
+
+        .btn-search {
+            background-color: #24ff02; /* Azul para buscar */
+            color: white;
+        }
+
+        .btn-search:hover {
+            background-color: #138496;
+        }
+
+        .btn-delete {
+            background-color: #dc3545; /* Rojo para eliminar */
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background-color: #c82333;
+        }
+
+        #tree {
+            width: 100%;
+            height: calc(100% - 160px);
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            background-color: #f1f1f1;
+            overflow: hidden;
+            margin-bottom: 20px;
+            position: relative;
+            transition: background-color 0.3s;
+        }
+
+        .dark-mode #tree {
+            border-color: #444;
+            background-color: #333;
+        }
+
+        #details {
+            text-align: left;
+            height: 220px;
+            overflow-y: auto;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            background-color: #e9ecef;
+            transition: background-color 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .dark-mode #details {
+            border-color: #444;
+            background-color: #2c2c2c;
+            color: #e0e0e0;
+        }
+
+        #details p {
+            margin: 5px 0;
+            line-height: 1.6;
+            color: #495057;
+        }
+
+        .dark-mode #details p {
+            color: #e0e0e0;
+        }
+
+        .node {
+            transition: all 0.5s ease;
+            stroke: #555;
+            stroke-width: 2px;
+            fill: #17e1e1; /* Color predeterminado */
+            opacity: 0.9;
+        }
+
+        .highlight-insert {
+            fill: #566ebf !important; /* Verde para inserción */
+            stroke: #4c62e1;
+            stroke-width: 3px;
+        }
+
+        .highlight-search {
+            fill: #768b8e !important; /* Azul para búsqueda */
+            stroke: #78969b;
+            stroke-width: 3px;
+        }
+
+        .highlight-delete {
+            fill: #dc3545 !important; /* Rojo para eliminación */
+            stroke: #dc3545;
+            stroke-width: 3px;
+        }
+
+        .line {
+            stroke: #888;
+            stroke-width: 2.5px;
+            transition: all 0.3s ease;
+            stroke-dasharray: 5, 5;
+            opacity: 0.8;
+        }
+
+        .dark-mode .line {
+            stroke: #aaa;
+        }
+
+        .theme-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: inherit;
+            transition: all 0.3s;
+        }
+
+        .theme-toggle:hover {
+            color: #007bff;
+        }
+
+        .sidebar {
+            position: fixed;
+            right: 20px;
+            top: 60px;
+            background-color: #fff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            width: 250px;
+            height: calc(100vh - 80px);
+            overflow-y: auto;
+            transition: transform 0.3s;
+            transform: translateX(110%);
+            z-index: 1000;
+        }
+
+        .dark-mode .sidebar {
+            background-color: #2c2c2c;
+            color: #e0e0e0;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
+        }
+
+        .sidebar.active {
+            transform: translateX(0);
+        }
+
+        .sidebar h2 {
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        .sidebar p {
+            margin: 5px 0;
+        }
+
+        .toggle-sidebar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: inherit;
+            transition: all 0.3s;
+        }
+
+        .toggle-sidebar:hover {
+            color: #007bff;
+        }
+
+        .custom-color {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: none;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 5px 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .custom-color:hover {
+            background-color: #f1f1f1;
+            color: #007bff;
+        }
+
+        .dark-mode .custom-color {
+            border-color: #444;
+        }
+
+        @media (max-width: 768px) {
+            .input-group {
+                max-width: 100%;
+            }
+
+            button.btn {
+                width: 100%;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .sidebar {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: auto;
+                width: 100%;
+                max-height: 50%;
+                overflow-y: scroll;
+                transform: translateY(-100%);
+            }
+
+            .sidebar.active {
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+        <button class="toggle-sidebar" onclick="toggleSidebar()">📊</button>
+        <button class="custom-color" onclick="changeNodeColor()">🎨 Cambiar Color de Nodos</button>
+        <h1>Árbol Binario de Búsqueda</h1>
+        <div class="controls">
+            <div class="input-group">
+                <input type="number" class="form-control" id="insertValue" placeholder="Insertar valor">
+                <div class="input-group-append">
+                    <button class="btn btn-insert" onclick="insertValue()">Insertar</button>
+                </div>
+            </div>
+            <div class="input-group">
+                <input type="number" class="form-control" id="searchValue" placeholder="Buscar valor">
+                <div class="input-group-append">
+                    <button class="btn btn-search" onclick="searchValue()">Buscar</button>
+                </div>
+            </div>
+            <div class="input-group">
+                <input type="number" class="form-control" id="deleteValue" placeholder="Eliminar valor">
+                <div class="input-group-append">
+                    <button class="btn btn-delete" onclick="deleteValue()">Eliminar</button>
+                </div>
+            </div>
+        </div>
+        <svg id="tree"></svg>
+        <div id="details"></div>
+    </div>
+
+    <!-- Sidebar para estadísticas del árbol -->
+    <div class="sidebar" id="sidebar">
+        <h2>Estadísticas del Árbol</h2>
+        <p><strong>Número de Nodos:</strong> <span id="numNodos">0</span></p>
+        <p><strong>Altura del Árbol:</strong> <span id="alturaArbol">0</span></p>
+        <p><strong>Operaciones Recientes:</strong></p>
+        <ul id="operacionesRecientes"></ul>
+    </div>
+
+    <!-- Agregar jQuery y Bootstrap JS desde Cloudflare -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+        class Nodo {
+            constructor(valor) {
+                this.valor = valor;
+                this.izquierda = null;
+                this.derecha = null;
+            }
+        }
+
+        class ABB {
+            constructor() {
+                this.raiz = null;
+                this.duracion = 800; // Duración de las animaciones en milisegundos
+                this.detalles = document.getElementById('details');
+                this.operacionesRecientes = document.getElementById('operacionesRecientes');
+                this.numNodos = document.getElementById('numNodos');
+                this.alturaArbol = document.getElementById('alturaArbol');
+                this.nodeColor = "#4caf50"; // Color predeterminado de los nodos
+            }
+
+            async insertar(valor) {
+                this.limpiarDetalles();
+                this.registrarOperacion(`Insertando valor: ${valor}`);
+                const nuevoNodo = new Nodo(valor);
+                if (this.raiz === null) {
+                    this.raiz = nuevoNodo;
+                    this.actualizar();
+                    this.resaltarNodo(nuevoNodo, "highlight-insert");
+                    this.registrarDetalle(`Insertado ${valor} en la raíz.`);
+                } else {
+                    await this.insertarNodo(this.raiz, nuevoNodo);
+                }
+                this.actualizarEstadisticas();
+            }
+
+            async insertarNodo(nodo, nuevoNodo) {
+                this.resaltarNodo(nodo, "highlight-insert");
+                await this.retraso(this.duracion);
+
+                if (nuevoNodo.valor < nodo.valor) {
+                    this.registrarDetalle(`Comparando ${nuevoNodo.valor} < ${nodo.valor}: yendo a la izquierda.`);
+                    if (nodo.izquierda === null) {
+                        nodo.izquierda = nuevoNodo;
+                        this.actualizar();
+                        this.resaltarNodo(nuevoNodo, "highlight-insert");
+                        this.registrarDetalle(`Insertado ${nuevoNodo.valor} a la izquierda de ${nodo.valor}.`);
+                    } else {
+                        await this.insertarNodo(nodo.izquierda, nuevoNodo);
+                    }
+                } else {
+                    this.registrarDetalle(`Comparando ${nuevoNodo.valor} >= ${nodo.valor}: yendo a la derecha.`);
+                    if (nodo.derecha === null) {
+                        nodo.derecha = nuevoNodo;
+                        this.actualizar();
+                        this.resaltarNodo(nuevoNodo, "highlight-insert");
+                        this.registrarDetalle(`Insertado ${nuevoNodo.valor} a la derecha de ${nodo.valor}.`);
+                    } else {
+                        await this.insertarNodo(nodo.derecha, nuevoNodo);
+                    }
+                }
+                this.actualizarEstadisticas();
+            }
+
+            async buscar(valor) {
+                this.limpiarDetalles();
+                this.registrarOperacion(`Buscando valor: ${valor}`);
+                const encontrado = await this.buscarNodo(this.raiz, valor);
+                if (encontrado) {
+                    this.registrarDetalle(`Valor encontrado: ${valor}`);
+                } else {
+                    this.registrarDetalle(`Valor ${valor} no encontrado en el árbol.`);
+                }
+            }
+
+            async buscarNodo(nodo, valor) {
+                if (nodo === null) {
+                    return false;
+                }
+
+                this.resaltarNodo(nodo, "highlight-search");
+                await this.retraso(this.duracion);
+
+                if (valor === nodo.valor) {
+                    this.registrarDetalle(`Valor ${valor} es igual al nodo ${nodo.valor}: encontrado.`);
+                    return true;
+                } else if (valor < nodo.valor) {
+                    this.registrarDetalle(`Valor ${valor} < nodo ${nodo.valor}: yendo a la izquierda.`);
+                    return await this.buscarNodo(nodo.izquierda, valor);
+                } else {
+                    this.registrarDetalle(`Valor ${valor} > nodo ${nodo.valor}: yendo a la derecha.`);
+                    return await this.buscarNodo(nodo.derecha, valor);
+                }
+            }
+
+            async eliminar(valor) {
+                this.limpiarDetalles();
+                this.registrarOperacion(`Eliminando valor: ${valor}`);
+                this.raiz = await this.eliminarNodo(this.raiz, valor);
+                this.actualizar();
+                this.actualizarEstadisticas();
+            }
+
+            async eliminarNodo(nodo, valor) {
+                if (nodo === null) {
+                    this.registrarDetalle(`Valor ${valor} no encontrado en el árbol.`);
+                    return null;
+                }
+
+                this.resaltarNodo(nodo, "highlight-delete");
+                await this.retraso(this.duracion);
+
+                if (valor < nodo.valor) {
+                    this.registrarDetalle(`Valor ${valor} < nodo ${nodo.valor}: yendo a la izquierda.`);
+                    nodo.izquierda = await this.eliminarNodo(nodo.izquierda, valor);
+                } else if (valor > nodo.valor) {
+                    this.registrarDetalle(`Valor ${valor} > nodo ${nodo.valor}: yendo a la derecha.`);
+                    nodo.derecha = await this.eliminarNodo(nodo.derecha, valor);
+                } else {
+                    this.registrarDetalle(`Nodo con valor ${valor} encontrado.`);
+                    if (nodo.izquierda === null && nodo.derecha === null) {
+                        this.registrarDetalle(`Nodo ${valor} es una hoja. Eliminando.`);
+                        return null;
+                    } else if (nodo.izquierda === null) {
+                        this.registrarDetalle(`Nodo ${valor} tiene solo hijo derecho. Reemplazando con hijo derecho.`);
+                        return nodo.derecha;
+                    } else if (nodo.derecha === null) {
+                        this.registrarDetalle(`Nodo ${valor} tiene solo hijo izquierdo. Reemplazando con hijo izquierdo.`);
+                        return nodo.izquierda;
+                    } else {
+                        this.registrarDetalle(`Nodo ${valor} tiene dos hijos. Buscando sucesor.`);
+                        const sucesor = await this.encontrarNodoMinimo(nodo.derecha);
+                        this.registrarDetalle(`Sucesor de ${valor} es ${sucesor.valor}.`);
+                        nodo.valor = sucesor.valor;
+                        nodo.derecha = await this.eliminarNodo(nodo.derecha, sucesor.valor);
+                    }
+                }
+                return nodo;
+            }
+
+            async encontrarNodoMinimo(nodo) {
+                while (nodo.izquierda !== null) {
+                    this.resaltarNodo(nodo, "highlight-delete");
+                    await this.retraso(this.duracion);
+                    nodo = nodo.izquierda;
+                }
+                this.resaltarNodo(nodo, "highlight-delete");
+                await this.retraso(this.duracion);
+                return nodo;
+            }
+
+            resaltarNodo(nodo, clase) {
+                d3.selectAll("circle")
+                    .filter(d => d === nodo)
+                    .classed(clase, true)
+                    .transition()
+                    .duration(this.duracion)
+                    .attr("fill", this.nodeColor)
+                    .transition()
+                    .duration(this.duracion)
+                    .on('end', function () { d3.select(this).classed(clase, false) });
+            }
+
+            actualizar() {
+                d3.select("#tree").selectAll("*").remove();
+                const width = parseInt(d3.select("#tree").style("width"));
+                const height = parseInt(d3.select("#tree").style("height"));
+                this.dibujarArbol(this.raiz, width / 2, 40, width / 4);
+            }
+
+            dibujarArbol(nodo, x, y, offset) {
+                if (nodo !== null) {
+                    d3.select("#tree")
+                        .append("circle")
+                        .datum(nodo)
+                        .attr("cx", x)
+                        .attr("cy", y)
+                        .attr("r", 25) /* Tamaño del nodo */
+                        .attr("fill", this.nodeColor)
+                        .attr("class", "node");
+
+                    d3.select("#tree")
+                        .append("text")
+                        .attr("x", x)
+                        .attr("y", y)
+                        .attr("dy", ".35em")
+                        .attr("text-anchor", "middle")
+                        .attr("fill", "white")
+                        .text(nodo.valor)
+                        .style("font-size", "14px"); /* Tamaño de la fuente */
+
+                    const lineOffset = offset * 0.6; // Ajuste de la longitud de la línea
+                    const yOffset = 70; // Ajuste del espacio vertical entre niveles
+
+                    if (nodo.izquierda !== null) {
+                        d3.select("#tree")
+                            .append("line")
+                            .attr("x1", x)
+                            .attr("y1", y + 25)
+                            .attr("x2", x - lineOffset)
+                            .attr("y2", y + yOffset)
+                            .attr("class", "line");
+                        this.dibujarArbol(nodo.izquierda, x - lineOffset, y + yOffset, offset / 2);
+                    }
+
+                    if (nodo.derecha !== null) {
+                        d3.select("#tree")
+                            .append("line")
+                            .attr("x1", x)
+                            .attr("y1", y + 25)
+                            .attr("x2", x + lineOffset)
+                            .attr("y2", y + yOffset)
+                            .attr("class", "line");
+                        this.dibujarArbol(nodo.derecha, x + lineOffset, y + yOffset, offset / 2);
+                    }
+                }
+            }
+
+            retraso(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            registrarDetalle(mensaje) {
+                const p = document.createElement('p');
+                p.textContent = mensaje;
+                this.detalles.appendChild(p);
+            }
+
+            registrarOperacion(mensaje) {
+                const li = document.createElement('li');
+                li.textContent = mensaje;
+                this.operacionesRecientes.prepend(li);
+                if (this.operacionesRecientes.childElementCount > 5) {
+                    this.operacionesRecientes.removeChild(this.operacionesRecientes.lastChild);
+                }
+            }
+
+            limpiarDetalles() {
+                this.detalles.innerHTML = '';
+            }
+
+            actualizarEstadisticas() {
+                this.numNodos.textContent = this.contarNodos(this.raiz);
+                this.alturaArbol.textContent = this.calcularAltura(this.raiz);
+            }
+
+            contarNodos(nodo) {
+                if (nodo === null) {
+                    return 0;
+                }
+                return 1 + this.contarNodos(nodo.izquierda) + this.contarNodos(nodo.derecha);
+            }
+
+            calcularAltura(nodo) {
+                if (nodo === null) {
+                    return 0;
+                }
+                return 1 + Math.max(this.calcularAltura(nodo.izquierda), this.calcularAltura(nodo.derecha));
+            }
+
+            cambiarColorNodos() {
+                const colors = ["#e91e63", "#3f51b5", "#009688", "#ff9800", "#607d8b"];
+                this.nodeColor = colors[Math.floor(Math.random() * colors.length)];
+                this.actualizar();
+            }
+        }
+
+        const abb = new ABB();
+
+        function insertValue() {
+            const valor = parseInt(document.getElementById('insertValue').value);
+            if (!isNaN(valor)) {
+                abb.insertar(valor);
+                document.getElementById('insertValue').value = '';
+            } else {
+                alert("Por favor, ingrese un valor válido.");
+            }
+        }
+
+        function searchValue() {
+            const valor = parseInt(document.getElementById('searchValue').value);
+            if (!isNaN(valor)) {
+                abb.buscar(valor);
+                document.getElementById('searchValue').value = '';
+            } else {
+                alert("Por favor, ingrese un valor válido.");
+            }
+        }
+
+        function deleteValue() {
+            const valor = parseInt(document.getElementById('deleteValue').value);
+            if (!isNaN(valor)) {
+                abb.eliminar(valor);
+                document.getElementById('deleteValue').value = '';
+            } else {
+                alert("Por favor, ingrese un valor válido.");
+            }
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('dark-mode');
+            const themeIcon = document.querySelector('.theme-toggle');
+            themeIcon.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('active');
+        }
+
+        function changeNodeColor() {
+            abb.cambiarColorNodos();
+        }
+    </script>
+</body>
+
+</html>

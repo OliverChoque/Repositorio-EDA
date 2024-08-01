@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BK-Tree Implementation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 400px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 24px;
+        }
+        input[type="text"], input[type="number"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .results ul {
+            list-style: none;
+            padding: 0;
+        }
+        .results li {
+            background-color: #f8f9fa;
+            margin: 5px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>BK-Tree Search</h1>
+        <input type="text" id="wordInput" placeholder="Enter word to add">
+        <button onclick="addWord()">Add Word</button>
+        <input type="text" id="searchInput" placeholder="Enter word to search">
+        <input type="number" id="distanceInput" placeholder="Enter max distance" min="1" max="10">
+        <button onclick="searchWords()">Search</button>
+        <div class="results">
+            <h2>Results:</h2>
+            <ul id="resultsList"></ul>
+        </div>
+    </div>
+
+    <script>
+        class BKTree {
+            constructor() {
+                this.root = null;
+            }
+
+            add(word) {
+                if (!this.root) {
+                    this.root = new Node(word);
+                } else {
+                    this._add(this.root, word);
+                }
+            }
+
+            _add(node, word) {
+                const distance = this.levenshteinDistance(node.word, word);
+                if (!node.children[distance]) {
+                    node.children[distance] = new Node(word);
+                } else {
+                    this._add(node.children[distance], word);
+                }
+            }
+
+            search(query, maxDistance) {
+                const results = [];
+                if (!this.root) return results;
+                this._search(this.root, query, maxDistance, results);
+                return results;
+            }
+
+            _search(node, query, maxDistance, results) {
+                const distance = this.levenshteinDistance(node.word, query);
+                if (distance <= maxDistance) {
+                    results.push(node.word);
+                }
+                const start = Math.max(1, distance - maxDistance);
+                const end = distance + maxDistance;
+                for (let i = start; i <= end; i++) {
+                    if (node.children[i]) {
+                        this._search(node.children[i], query, maxDistance, results);
+                    }
+                }
+            }
+
+            levenshteinDistance(a, b) {
+                const matrix = [];
+                for (let i = 0; i <= b.length; i++) {
+                    matrix[i] = [i];
+                }
+                for (let j = 0; j <= a.length; j++) {
+                    matrix[0][j] = j;
+                }
+                for (let i = 1; i <= b.length; i++) {
+                    for (let j = 1; j <= a.length; j++) {
+                        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                            matrix[i][j] = matrix[i - 1][j - 1];
+                        } else {
+                            matrix[i][j] = Math.min(
+                                matrix[i - 1][j - 1] + 1,
+                                Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
+                            );
+                        }
+                    }
+                }
+                return matrix[b.length][a.length];
+            }
+        }
+
+        class Node {
+            constructor(word) {
+                this.word = word;
+                this.children = {};
+            }
+        }
+
+        const bkTree = new BKTree();
+
+        function addWord() {
+            const wordInput = document.getElementById('wordInput');
+            const word = wordInput.value.trim();
+            if (word) {
+                bkTree.add(word);
+                wordInput.value = '';
+                alert(`Word "${word}" added to the BK-Tree.`);
+            } else {
+                alert('Please enter a word.');
+            }
+        }
+
+        function searchWords() {
+            const searchInput = document.getElementById('searchInput');
+            const distanceInput = document.getElementById('distanceInput');
+            const query = searchInput.value.trim();
+            const maxDistance = parseInt(distanceInput.value, 10);
+
+            if (query && !isNaN(maxDistance)) {
+                const results = bkTree.search(query, maxDistance);
+                const resultsList = document.getElementById('resultsList');
+                resultsList.innerHTML = '';
+                results.forEach(word => {
+                    const li = document.createElement('li');
+                    li.textContent = word;
+                    resultsList.appendChild(li);
+                });
+            } else {
+                alert('Please enter a search word and a valid max distance.');
+            }
+        }
+    </script>
+</body>
+</html>

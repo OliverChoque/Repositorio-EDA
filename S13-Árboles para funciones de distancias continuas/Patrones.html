@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BK Tree Búsqueda de Patrones</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #1e1e1e;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #e0e0e0;
+        }
+
+        .input-section, .result-section, .history-section {
+            margin: 20px 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #b0b0b0;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background-color: #2e2e2e;
+            color: #e0e0e0;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #4cae4c;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            padding: 10px;
+            background-color: #2e2e2e;
+            border: 1px solid #333;
+            border-radius: 4px;
+            margin-bottom: 5px;
+        }
+
+        .error {
+            color: #f44336;
+            text-align: center;
+        }
+
+        .loading {
+            text-align: center;
+            font-size: 16px;
+            color: #e0e0e0;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>BK Tree Búsqueda de Patrones en Secuencias Temporales</h1>
+        <div class="input-section">
+            <label for="sequenceInput">Secuencia de Consulta (separada por comas):</label>
+            <input type="text" id="sequenceInput" placeholder="Ej. 1,2,3,4,5">
+            <label for="maxDistanceInput">Distancia Máxima:</label>
+            <input type="number" id="maxDistanceInput" placeholder="Ej. 2">
+            <button id="searchButton">Buscar Secuencias Similares</button>
+            <p id="errorMessage" class="error"></p>
+            <p id="loadingMessage" class="loading hidden">Buscando...</p>
+        </div>
+        <div class="result-section">
+            <h2>Secuencias Similares Encontradas:</h2>
+            <ul id="resultsList"></ul>
+        </div>
+        <div class="history-section">
+            <h2>Historial de Búsquedas:</h2>
+            <ul id="historyList"></ul>
+        </div>
+    </div>
+    <script>
+        // Clase para nodos del BK Tree
+        class BKNode {
+            constructor(value) {
+                this.value = value;
+                this.children = new Map();
+            }
+        }
+
+        // Clase BK Tree
+        class BKTree {
+            constructor(distanceMetric) {
+                this.root = null;
+                this.distanceMetric = distanceMetric;
+            }
+
+            insert(sequence) {
+                if (this.root === null) {
+                    this.root = new BKNode(sequence);
+                } else {
+                    this._insert(this.root, sequence);
+                }
+            }
+
+            _insert(node, sequence) {
+                const distance = this.distanceMetric(node.value, sequence);
+                if (!node.children.has(distance)) {
+                    node.children.set(distance, new BKNode(sequence));
+                } else {
+                    this._insert(node.children.get(distance), sequence);
+                }
+            }
+
+            search(query, maxDistance) {
+                if (this.root === null) {
+                    return [];
+                } else {
+                    return this._search(this.root, query, maxDistance);
+                }
+            }
+
+            _search(node, query, maxDistance) {
+                const results = [];
+                const distance = this.distanceMetric(node.value, query);
+                if (distance <= maxDistance) {
+                    results.push(node.value);
+                }
+
+                for (let [childDistance, childNode] of node.children) {
+                    if (distance - maxDistance <= childDistance && childDistance <= distance + maxDistance) {
+                        results.push(...this._search(childNode, query, maxDistance));
+                    }
+                }
+
+                return results;
+            }
+        }
+
+        // Función para calcular la distancia Euclidiana entre dos secuencias temporales
+        function euclideanDistance(seq1, seq2) {
+            if (seq1.length !== seq2.length) {
+                throw new Error("Las secuencias deben tener la misma longitud");
+            }
+            let sum = 0;
+            for (let i = 0; i < seq1.length; i++) {
+                sum += Math.pow(seq1[i] - seq2[i], 2);
+            }
+            return Math.sqrt(sum);
+        }
+
+        // Crear un BK Tree y agregar secuencias de ejemplo
+        const sequences = JSON.parse(localStorage.getItem('sequences')) || [
+            [1, 2, 3, 4, 5],
+            [2, 3, 4, 5, 6],
+            [10, 11, 12, 13, 14],
+            [20, 11, 12, 13, 14],
+            [3, 5, 7, 9, 11],
+            [8, 10, 12, 14, 16],
+            [15, 17, 19, 21, 23],
+            [25, 26, 27, 28, 29],
+            [0, 1, 1, 2, 3],
+            [5, 6, 7, 8, 9]
+        ];
+
+        const bkTree = new BKTree(euclideanDistance);
+
+        sequences.forEach(seq => bkTree.insert(seq));
+
+        // Guardar las secuencias en el almacenamiento local
+        localStorage.setItem('sequences', JSON.stringify(sequences));
+
+        // Cargar historial de búsquedas desde el almacenamiento local
+        const searchHistory = JSON.parse(localStorage.getItem('searchHistory')) || [];
+        const historyList = document.getElementById('historyList');
+        searchHistory.forEach(item => {
+            const historyItem = document.createElement('li');
+            historyItem.textContent = item;
+            historyList.appendChild(historyItem);
+        });
+
+        // Manejar el evento de búsqueda
+        document.getElementById('searchButton').addEventListener('click', () => {
+            const sequenceInput = document.getElementById('sequenceInput').value;
+            const maxDistanceInput = document.getElementById('maxDistanceInput').value;
+            const errorMessage = document.getElementById('errorMessage');
+            const loadingMessage = document.getElementById('loadingMessage');
+
+            if (sequenceInput && maxDistanceInput) {
+                const querySequence = sequenceInput.split(',').map(Number);
+                const maxDistance = parseFloat(maxDistanceInput);
+
+                if (querySequence.some(isNaN) || isNaN(maxDistance)) {
+                    errorMessage.textContent = 'Por favor, ingrese valores numéricos válidos.';
+                    return;
+                }
+
+                errorMessage.textContent = '';
+                loadingMessage.classList.remove('hidden');
+
+                setTimeout(() => {
+                    const similarSequences = bkTree.search(querySequence, maxDistance);
+
+                    const resultsList = document.getElementById('resultsList');
+                    resultsList.innerHTML = '';
+                    if (similarSequences.length > 0) {
+                        similarSequences.forEach(seq => {
+                            const listItem = document.createElement('li');
+                            listItem.textContent = seq.join(', ');
+                            resultsList.appendChild(listItem);
+                        });
+                    } else {
+                        const listItem = document.createElement('li');
+                        listItem.textContent = 'No se encontraron secuencias similares.';
+                        resultsList.appendChild(listItem);
+                    }
+
+                    // Agregar búsqueda al historial
+                    const historyItem = document.createElement('li');
+                    historyItem.textContent = `Consulta: [${querySequence.join(', ')}], Distancia Máxima: ${maxDistance}`;
+                    historyList.appendChild(historyItem);
+
+                    // Guardar historial de búsquedas en el almacenamiento local
+                    const searchHistory = JSON.parse(localStorage.getItem('searchHistory')) || [];
+                    searchHistory.push(`Consulta: [${querySequence.join(', ')}], Distancia Máxima: ${maxDistance}`);
+                    localStorage.setItem('searchHistory', JSON.stringify(searchHistory));
+
+                    loadingMessage.classList.add('hidden');
+                }, 1000);
+            } else {
+                errorMessage.textContent = 'Por favor, ingrese una secuencia de consulta y una distancia máxima.';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corrector Ortográfico con BK Tree</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #f0f0f0;
+            font-family: 'Arial', sans-serif;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        .input-group, .list-group {
+            margin-top: 20px;
+        }
+        #sugerencias li {
+            cursor: pointer;
+        }
+        #sugerencias li:hover {
+            background-color: #343a40;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+        .modal-content {
+            background-color: #2b2b2b;
+            color: #f0f0f0;
+        }
+        .modal-header, .modal-footer {
+            border-color: #444;
+        }
+        .modal-body input {
+            background-color: #444;
+            color: #f0f0f0;
+            border-color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Corrector Ortográfico</h1>
+        <div class="input-group">
+            <input type="text" id="entradaPalabra" class="form-control" placeholder="Escribe una palabra...">
+            <button class="btn btn-primary" type="button" id="botonLimpiar">Limpiar</button>
+        </div>
+        <ul id="sugerencias" class="list-group"></ul>
+    </div>
+
+    <!-- Modal para agregar nuevas palabras -->
+    <div class="modal fade" id="modalAgregarPalabra" tabindex="-1" aria-labelledby="modalAgregarPalabraLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalAgregarPalabraLabel">Agregar Nueva Palabra</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="nuevaPalabra" class="form-control" placeholder="Nueva palabra...">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="guardarPalabra">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class BKTree {
+            constructor() {
+                this.arbol = null;
+            }
+
+            static distanciaLevenshtein(a, b) {
+                const matriz = [];
+                for (let i = 0; i <= b.length; i++) {
+                    matriz[i] = [i];
+                }
+                for (let j = 0; j <= a.length; j++) {
+                    matriz[0][j] = j;
+                }
+                for (let i = 1; i <= b.length; i++) {
+                    for (let j = 1; j <= a.length; j++) {
+                        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                            matriz[i][j] = matriz[i - 1][j - 1];
+                        } else {
+                            matriz[i][j] = Math.min(
+                                matriz[i - 1][j - 1] + 1,
+                                Math.min(matriz[i][j - 1] + 1, matriz[i - 1][j] + 1)
+                            );
+                        }
+                    }
+                }
+                return matriz[b.length][a.length];
+            }
+
+            agregar(palabra) {
+                const agregarNodo = (nodo, palabra) => {
+                    const distancia = BKTree.distanciaLevenshtein(nodo.palabra, palabra);
+                    if (!nodo.hijos[distancia]) {
+                        nodo.hijos[distancia] = { palabra, hijos: {} };
+                    } else {
+                        agregarNodo(nodo.hijos[distancia], palabra);
+                    }
+                };
+
+                if (!this.arbol) {
+                    this.arbol = { palabra, hijos: {} };
+                } else {
+                    agregarNodo(this.arbol, palabra);
+                }
+            }
+
+            buscar(palabra, maxDistancia) {
+                const resultado = [];
+                const buscarNodo = (nodo, palabra, maxDistancia) => {
+                    const distancia = BKTree.distanciaLevenshtein(nodo.palabra, palabra);
+                    if (distancia <= maxDistancia) {
+                        resultado.push(nodo.palabra);
+                    }
+                    const distanciaMinima = distancia - maxDistancia;
+                    const rangoMaxDistancia = distancia + maxDistancia;
+                    for (let i = distanciaMinima; i <= rangoMaxDistancia; i++) {
+                        if (nodo.hijos[i]) {
+                            buscarNodo(nodo.hijos[i], palabra, maxDistancia);
+                        }
+                    }
+                };
+
+                if (this.arbol) {
+                    buscarNodo(this.arbol, palabra, maxDistancia);
+                }
+                return resultado;
+            }
+        }
+
+        const diccionario = ["manzana", "banana", "naranja", "uva", "kiwi", "durazno", "mango", "limón"];
+        const bkTree = new BKTree();
+
+        diccionario.forEach(palabra => bkTree.agregar(palabra));
+
+        const entradaPalabra = document.getElementById('entradaPalabra');
+        const listaSugerencias = document.getElementById('sugerencias');
+        const botonLimpiar = document.getElementById('botonLimpiar');
+
+        entradaPalabra.addEventListener('input', (e) => {
+            const palabra = e.target.value.trim().toLowerCase();
+            if (palabra.length === 0) {
+                listaSugerencias.innerHTML = '';
+                return;
+            }
+            const sugerencias = bkTree.buscar(palabra, 2);
+            listaSugerencias.innerHTML = '';
+            if (sugerencias.length > 0) {
+                sugerencias.forEach(sugerencia => {
+                    const li = document.createElement('li');
+                    li.textContent = sugerencia;
+                    li.className = 'list-group-item list-group-item-dark';
+                    li.onclick = () => {
+                        entradaPalabra.value = sugerencia;
+                        listaSugerencias.innerHTML = '';
+                    };
+                    listaSugerencias.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = 'No se encontraron sugerencias';
+                li.className = 'list-group-item list-group-item-dark';
+                listaSugerencias.appendChild(li);
+            }
+        });
+
+        botonLimpiar.addEventListener('click', () => {
+            entradaPalabra.value = '';
+            listaSugerencias.innerHTML = '';
+            entradaPalabra.focus();
+        });
+
+        // Funcionalidad adicional: abrir modal para agregar nuevas palabras
+        entradaPalabra.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const nuevaPalabra = entradaPalabra.value.trim().toLowerCase();
+                if (nuevaPalabra && !diccionario.includes(nuevaPalabra)) {
+                    bkTree.agregar(nuevaPalabra);
+                    diccionario.push(nuevaPalabra);
+                    alert(`Palabra "${nuevaPalabra}" agregada al diccionario.`);
+                    entradaPalabra.value = '';
+                    listaSugerencias.innerHTML = '';
+                }
+            }
+        });
+
+        const guardarPalabraBtn = document.getElementById('guardarPalabra');
+        guardarPalabraBtn.addEventListener('click', () => {
+            const nuevaPalabra = document.getElementById('nuevaPalabra').value.trim().toLowerCase();
+            if (nuevaPalabra && !diccionario.includes(nuevaPalabra)) {
+                bkTree.agregar(nuevaPalabra);
+                diccionario.push(nuevaPalabra);
+                alert(`Palabra "${nuevaPalabra}" agregada al diccionario.`);
+                document.getElementById('nuevaPalabra').value = '';
+                new bootstrap.Modal(document.getElementById('modalAgregarPalabra')).hide();
+            }
+        });
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Búsqueda de Imágenes Similares</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        .container {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+        .image-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .image-container img, .result-container img {
+            width: 90px;
+            height: 90px;
+            object-fit: cover;
+            cursor: pointer;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease, border 0.3s ease;
+        }
+        .image-container img:hover, .result-container img:hover {
+            transform: scale(1.1);
+        }
+        .selected {
+            border: 3px solid #03a9f4;
+        }
+        .similar {
+            border: 3px solid #8bc34a;
+        }
+        .result-container {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+        h1, h2, h3 {
+            width: 100%;
+            text-align: center;
+            font-size: 2em;
+            color: #03a9f4;
+        }
+        #message {
+            text-align: center;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            color: #9e9e9e;
+        }
+        .header {
+            margin-bottom: 30px;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.9em;
+            color: #9e9e9e;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            margin-top: 20px;
+            font-size: 1em;
+            color: #121212;
+            background-color: #03a9f4;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+        }
+        .button:hover {
+            background-color: #0288d1;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Búsqueda de Imágenes Similares</h1>
+            <div id="message">Haz clic en una imagen para encontrar imágenes similares.</div>
+            <button class="button" onclick="resetSearch()">Resetear Búsqueda</button>
+        </div>
+        <div class="image-container" id="imageContainer"></div>
+        <div class="result-container" id="resultContainer"></div>
+        <div class="footer">
+            <p>© 2024 Búsqueda de Imágenes Similares. Todos los derechos reservados.</p>
+        </div>
+    </div>
+    <script>
+        const images = [
+            { id: 1, features: [128, 64, 64, 0.5, 0.8], src: 'img/Up.jfif' },
+            { id: 2, features: [130, 60, 70, 0.6, 0.7], src: 'img/Stay.jfif' },
+            { id: 3, features: [120, 65, 60, 0.4, 0.9], src: 'img/Without You.jfif' },
+            { id: 4, features: [125, 70, 80, 0.7, 0.6], src: 'img/Watermelon Sugar.jfif' },
+            { id: 5, features: [140, 55, 75, 0.8, 0.5], src: 'img/Take My Breath.jfif' },
+            { id: 6, features: [135, 58, 68, 0.9, 0.4], src: 'img/Blinding Lights.jfif' },
+            { id: 7, features: [115, 62, 72, 0.3, 0.7], src: 'img/Savage Love.jfif' },
+            { id: 8, features: [118, 59, 65, 0.8, 0.6], src: 'img/Levitating.png' },
+            { id: 9, features: [123, 67, 70, 0.5, 0.9], src: 'img/Peaches.jfif' },
+            { id: 10, features: [145, 63, 77, 0.4, 0.8], src: 'img/Montero.jfif' },
+            { id: 11, features: [133, 68, 73, 0.6, 0.7], src: 'img/Drivers License.jfif' },
+            { id: 12, features: [122, 61, 66, 0.7, 0.8], src: 'img/Save Your Tears.jfif' },
+            { id: 13, features: [121, 64, 69, 0.5, 0.6], src: 'img/Good 4 U.png' },
+            { id: 14, features: [136, 70, 75, 0.8, 0.5], src: 'img/Kiss Me More.jfif' },
+            { id: 15, features: [134, 66, 74, 0.7, 0.6], src: 'img/Deja Vu.png' },
+            { id: 16, features: [137, 69, 78, 0.6, 0.9], src: 'img/Butter.jfif' },
+            { id: 17, features: [128, 65, 71, 0.4, 0.7], src: 'img/Therefore I Am.jfif' },
+            { id: 18, features: [131, 62, 67, 0.8, 0.5], src: 'img/Positions.jfif' },
+            { id: 19, features: [127, 63, 70, 0.7, 0.8], src: 'img/Rockstar.jfif' },
+            { id: 20, features: [129, 68, 72, 0.6, 0.4], src: 'img/Holy.jpg' },
+            { id: 21, features: [132, 67, 76, 0.5, 0.7], src: 'img/Dynamite.jfif' },
+            { id: 22, features: [124, 66, 74, 0.4, 0.6], src: 'img/Laugh Now Cry Later.jfif' },
+            { id: 23, features: [120, 60, 65, 0.9, 0.5], src: 'img/Whats Next.png' },
+            { id: 24, features: [126, 64, 68, 0.8, 0.7], src: 'img/34+35.jfif' },
+            { id: 25, features: [125, 61, 66, 0.7, 0.9], src: 'img/Holiday.jfif' },
+            { id: 26, features: [138, 69, 75, 0.6, 0.4], src: 'img/TikTok.png' },
+            { id: 27, features: [140, 70, 77, 0.5, 0.8], src: 'img/Fake Woke.jfif' },
+            { id: 28, features: [123, 65, 67, 0.4, 0.7], src: 'img/Best Friend.jfif' },
+            { id: 29, features: [130, 66, 71, 0.8, 0.5], src: 'img/Industry Baby.jfif' },
+            { id: 30, features: [135, 68, 74, 0.7, 0.6], src: 'img/Heartbreak Anniversary.jfif' },
+            { id: 31, features: [132, 63, 70, 0.6, 0.9], src: 'img/Back In Blood.jfif' },
+            { id: 32, features: [137, 64, 69, 0.5, 0.8], src: 'img/Telepatia.jfif' },
+            { id: 33, features: [128, 61, 66, 0.4, 0.7], src: 'img/Calling My Phone.jfif' },
+            { id: 34, features: [131, 67, 72, 0.9, 0.6], src: 'img/For The Night.jfif' },
+            { id: 35, features: [126, 62, 70, 0.8, 0.5], src: 'img/On My Way.jfif' },
+            { id: 36, features: [124, 65, 68, 0.7, 0.9], src: 'img/Go Crazy.jfif' },
+            { id: 37, features: [129, 66, 73, 0.6, 0.4], src: 'img/Body.jfif' },
+            { id: 38, features: [133, 69, 75, 0.5, 0.7], src: 'img/Mood.jfif' },
+            { id: 39, features: [120, 63, 67, 0.4, 0.6], src: 'img/Blame.jfif' },
+            { id: 40, features: [122, 64, 69, 0.8, 0.5], src: 'img/Forever Yours.jfif' },
+            { id: 41, features: [127, 62, 71, 0.7, 0.6], src: 'img/Heat Waves.jfif' },
+            { id: 42, features: [134, 67, 72, 0.6, 0.9], src: 'img/Scared.png' },
+            { id: 43, features: [135, 66, 70, 0.5, 0.8], src: 'img/Ski.jfif' },
+            { id: 44, features: [128, 65, 68, 0.4, 0.7], src: 'img/Flocky Flocky.jfif' },
+        ];
+
+        function euclideanDistance(a, b) {
+            return Math.sqrt(a.reduce((sum, val, i) => sum + (val - b[i]) ** 2, 0));
+        }
+
+        class Node {
+            constructor(image) {
+                this.image = image;
+                this.radius = 0;
+                this.inside = null;
+                this.outside = null;
+            }
+        }
+
+        class VPTree {
+            constructor(images, distanceFunc) {
+                this.distanceFunc = distanceFunc;
+                this.root = this.buildTree(images);
+            }
+
+            buildTree(images) {
+                if (images.length === 0) return null;
+
+                const index = this.selectVantagePoint(images);
+                const image = images[index];
+                const node = new Node(image);
+                images.splice(index, 1);
+
+                if (images.length === 0) return node;
+
+                const distances = images.map(img => this.distanceFunc(image.features, img.features));
+                const median = this.median(distances);
+                node.radius = median;
+
+                const insideImages = images.filter((img, i) => distances[i] <= median);
+                const outsideImages = images.filter((img, i) => distances[i] > median);
+
+                node.inside = this.buildTree(insideImages);
+                node.outside = this.buildTree(outsideImages);
+
+                return node;
+            }
+
+            selectVantagePoint(images) {
+                let maxVariance = -Infinity;
+                let vantagePointIndex = 0;
+
+                images.forEach((img, index) => {
+                    const distances = images.map(otherImg => this.distanceFunc(img.features, otherImg.features));
+                    const mean = distances.reduce((sum, d) => sum + d, 0) / distances.length;
+                    const variance = distances.reduce((sum, d) => sum + (d - mean) ** 2, 0) / distances.length;
+
+                    if (variance > maxVariance) {
+                        maxVariance = variance;
+                        vantagePointIndex = index;
+                    }
+                });
+
+                return vantagePointIndex;
+            }
+
+            median(values) {
+                values.sort((a, b) => a - b);
+                const mid = Math.floor(values.length / 2);
+                return values[mid];
+            }
+
+            search(image, maxResults, node = this.root, neighbors = []) {
+                if (!node) return neighbors;
+
+                const dist = this.distanceFunc(image.features, node.image.features);
+                if (neighbors.length < maxResults || dist < neighbors[0].distance) {
+                    neighbors.push({ image: node.image, distance: dist });
+                    neighbors.sort((a, b) => b.distance - a.distance);
+                    if (neighbors.length > maxResults) neighbors.shift();
+                }
+
+                const checkInsideFirst = dist < node.radius;
+
+                if (checkInsideFirst) {
+                    this.search(image, maxResults, node.inside, neighbors);
+                    if (neighbors.length < maxResults || Math.abs(node.radius - dist) < neighbors[0].distance) {
+                        this.search(image, maxResults, node.outside, neighbors);
+                    }
+                } else {
+                    this.search(image, maxResults, node.outside, neighbors);
+                    if (neighbors.length < maxResults || Math.abs(node.radius - dist) < neighbors[0].distance) {
+                        this.search(image, maxResults, node.inside, neighbors);
+                    }
+                }
+
+                return neighbors;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const imageContainer = document.getElementById('imageContainer');
+            const resultContainer = document.getElementById('resultContainer');
+            const message = document.getElementById('message');
+
+            images.forEach(img => {
+                const imageElement = document.createElement('img');
+                imageElement.src = img.src;
+                imageElement.dataset.id = img.id;
+                imageElement.classList.add('img-thumbnail');
+                imageElement.addEventListener('click', () => {
+                    document.querySelectorAll('.image-container img').forEach(el => el.classList.remove('selected'));
+                    document.querySelectorAll('.result-container img').forEach(el => el.classList.remove('similar'));
+
+                    imageElement.classList.add('selected');
+                    const queryImage = images.find(i => i.id == img.id);
+                    const tree = new VPTree(images, euclideanDistance);
+                    const similarImages = tree.search(queryImage, 5); // Mostrar las 5 imágenes más similares
+                    displayResults(similarImages);
+                });
+                imageContainer.appendChild(imageElement);
+            });
+
+            function displayResults(similarImages) {
+                resultContainer.innerHTML = '<h2>Imágenes Similares:</h2>';
+                similarImages.forEach(result => {
+                    const imageElement = document.createElement('img');
+                    imageElement.src = result.image.src;
+                    imageElement.classList.add('img-thumbnail', 'similar');
+                    resultContainer.appendChild(imageElement);
+                });
+                message.innerHTML = 'Mostrando imágenes similares para la imagen seleccionada.';
+            }
+
+            window.resetSearch = () => {
+                document.querySelectorAll('.image-container img').forEach(el => el.classList.remove('selected'));
+                document.querySelectorAll('.result-container img').forEach(el => el.classList.remove('similar'));
+                resultContainer.innerHTML = '';
+                message.innerHTML = 'Haz clic en una imagen para encontrar imágenes similares.';
+            };
+        });
+    </script>
+</body>
+</html>

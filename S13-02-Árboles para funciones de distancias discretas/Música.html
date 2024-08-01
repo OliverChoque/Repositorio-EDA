@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Recomendación de Música</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #222;
+            color: #f8f9fa;
+            font-family: 'Arial', sans-serif;
+        }
+        .navbar {
+            background-color: #1b1e21;
+            color: white;
+        }
+        .navbar-brand, .navbar-nav .nav-link {
+            color: white !important;
+        }
+        .song-card {
+            margin: 10px;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+            height: 100%;
+            background: #333;
+            color: #f8f9fa;
+        }
+        .song-card:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+        }
+        .song-image {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 50%;
+            margin-bottom: 10px;
+            transition: transform 0.3s;
+        }
+        .song-card:hover .song-image {
+            transform: rotate(360deg);
+        }
+        .song-card h5 {
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+        .song-card p {
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        .btn-primary, .btn-secondary, .btn-clear {
+            font-size: 0.9rem;
+            padding: 10px 20px;
+            width: 100%;
+            margin-bottom: 5px;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border: none;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+            transform: scale(1.05);
+        }
+        .btn-secondary {
+            background-color: #28a745;
+            border: none;
+        }
+        .btn-secondary:hover {
+            background-color: #218838;
+            transform: scale(1.05);
+        }
+        .btn-clear {
+            background-color: #dc3545;
+            border: none;
+        }
+        .btn-clear:hover {
+            background-color: #c82333;
+            transform: scale(1.05);
+        }
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+        }
+        .col-md-2 {
+            flex: 1 0 18%;
+            box-sizing: border-box;
+            max-width: 18%;
+        }
+        .alert {
+            display: none;
+        }
+        footer {
+            background-color: #1b1e21;
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+        .modal-content {
+            background: #333;
+            color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <a class="navbar-brand" href="#">Sistema de Recomendación de Música</a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Inicio</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Acerca de</a>
+                </li>
+            </ul>
+            <form class="form-inline my-2 my-lg-0">
+                <input class="form-control mr-sm-2" type="search" id="search-bar" placeholder="Buscar canciones" aria-label="Buscar">
+            </form>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <h1 class="text-center mt-5">Sistema de Recomendación de Música</h1>
+        <div class="alert alert-warning" role="alert" id="no-recommendations-alert">
+            No se encontraron recomendaciones para la canción seleccionada.
+        </div>
+        <div class="row" id="song-list"></div>
+        <h2 class="text-center mt-5">Canciones Recomendadas</h2>
+        <div class="row" id="recommended-songs"></div>
+        <div class="text-center mt-3">
+            <button class="btn btn-clear" onclick="clearRecommendations()">Limpiar Recomendaciones</button>
+        </div>
+    </div>
+
+    <footer>
+        <p>© 2024 Sistema de Recomendación de Música. Todos los derechos reservados.</p>
+    </footer>
+
+    <!-- Modal -->
+    <div class="modal fade" id="songModal" tabindex="-1" role="dialog" aria-labelledby="songModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="songModalLabel">Detalles de la Canción</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Cerrar">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body" id="song-modal-body">
+                    <!-- Detalles de la canción serán agregados aquí -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const songs = [
+            { id: 1, name: "Blinding Lights", image: "img/Blinding Lights.jfif", features: [171, 60, 200] },
+            { id: 2, name: "Watermelon Sugar", image: "img/Watermelon Sugar.jfif", features: [174, 58, 180] },
+            { id: 3, name: "Save Your Tears", image: "img/Save Your Tears.jfif", features: [114, 63, 220] },
+            { id: 4, name: "Kiss Me More", image: "img/Kiss Me More.jfif", features: [111, 65, 181] },
+            { id: 5, name: "Montero", image: "img/Montero.jfif", features: [120, 55, 195] },
+            { id: 6, name: "Good 4 U", image: "img/Good 4 U.png", features: [169, 61, 178] },
+            { id: 7, name: "Drivers License", image: "img/Drivers License.jfif", features: [144, 54, 242] },
+            { id: 8, name: "Stay", image: "img/Stay.jfif", features: [170, 64, 156] },
+            { id: 9, name: "Levitating", image: "img/Levitating.png", features: [103, 60, 203] },
+            { id: 10, name: "Rockstar", image: "img/Rockstar.jfif", features: [181, 58, 214] },
+            { id: 11, name: "Mood", image: "img/Mood.jfif", features: [90, 57, 165] },
+            { id: 12, name: "Positions", image: "img/Positions.jfif", features: [94, 55, 187] },
+            { id: 13, name: "Dynamite", image: "img/Dynamite.jfif", features: [114, 63, 182] },
+            { id: 14, name: "Therefore I Am", image: "img/Therefore I Am.jfif", features: [95, 58, 175] },
+            { id: 15, name: "34+35", image: "img/34+35.jfif", features: [104, 62, 175] },
+            { id: 16, name: "What You Know Bout Love", image: "img/What You Know Bout Love.png", features: [94, 57, 210] },
+            { id: 17, name: "You Right", image: "img/You Right.jfif", features: [107, 59, 190] },
+            { id: 18, name: "Go Crazy", image: "img/Go Crazy.jfif", features: [93, 64, 181] },
+            { id: 19, name: "Up", image: "img/Up.jfif", features: [91, 55, 200] },
+            { id: 20, name: "Lonely", image: "img/Lonely.png", features: [101, 63, 158] },
+            { id: 21, name: "Deja Vu", image: "img/Deja Vu.png", features: [170, 61, 178] },
+            { id: 22, name: "Without You", image: "img/Without You.jfif", features: [167, 54, 163] },
+            { id: 23, name: "Better", image: "img/Better.jfif", features: [125, 60, 190] },
+            { id: 24, name: "Heartbreak Anniversary", image: "img/Heartbreak Anniversary.jfif", features: [96, 58, 197] },
+            { id: 25, name: "Beautiful Mistakes", image: "img/Beautiful Mistakes.jfif", features: [93, 55, 173] },
+            { id: 26, name: "Leave The Door Open", image: "img/Leave The Door Open.jfif", features: [112, 64, 245] },
+            { id: 27, name: "Shivers", image: "img/Shivers.jfif", features: [153, 60, 207] },
+            { id: 28, name: "Take My Breath", image: "img/Take My Breath.jfif", features: [120, 62, 220] },
+            { id: 29, name: "Industry Baby", image: "img/Industry Baby.jfif", features: [150, 60, 212] },
+            { id: 30, name: "Need To Know", image: "img/Need To Know.jfif", features: [140, 62, 198] },
+            { id: 31, name: "Cold Heart", image: "img/Cold Heart.jfif", features: [130, 64, 180] },
+            { id: 32, name: "Bad Habits", image: "img/Bad Habits.jfif", features: [115, 61, 205] },
+            { id: 33, name: "Love Nwantiti", image: "img/Love Nwantiti.jfif", features: [110, 60, 210] },
+            { id: 34, name: "Peaches", image: "img/Peaches.png", features: [90, 55, 198] },
+            { id: 35, name: "Butter", image: "img/Butter.jfif", features: [130, 60, 200] },
+            { id: 36, name: "Partido en Dos", image: "img/Partido en Dos.jpg", features: [110, 50, 160] }
+        ];
+
+        function euclideanDistance(a, b) {
+            return Math.sqrt(a.reduce((sum, val, i) => sum + (val - b[i]) ** 2, 0));
+        }
+
+        class Node {
+            constructor(song) {
+                this.song = song;
+                this.radius = 0;
+                this.inside = null;
+                this.outside = null;
+            }
+        }
+
+        class VPTree {
+            constructor(songs, distanceFunc) {
+                this.distanceFunc = distanceFunc;
+                this.root = this.buildTree(songs);
+            }
+
+            buildTree(songs) {
+                if (songs.length === 0) return null;
+                const index = Math.floor(Math.random() * songs.length);
+                const song = songs[index];
+                const node = new Node(song);
+                songs.splice(index, 1);
+
+                if (songs.length === 0) return node;
+
+                const distances = songs.map(s => this.distanceFunc(song.features, s.features));
+                const median = this.median(distances);
+                node.radius = median;
+
+                const insideSongs = songs.filter((s, i) => distances[i] <= median);
+                const outsideSongs = songs.filter((s, i) => distances[i] > median);
+
+                node.inside = this.buildTree(insideSongs);
+                node.outside = this.buildTree(outsideSongs);
+
+                return node;
+            }
+
+            median(values) {
+                values.sort((a, b) => a - b);
+                const mid = Math.floor(values.length / 2);
+                return values[mid];
+            }
+
+            search(song, maxResults, node = this.root, neighbors = []) {
+                if (!node) return neighbors;
+
+                const dist = this.distanceFunc(song.features, node.song.features);
+                if (neighbors.length < maxResults || dist < neighbors[neighbors.length - 1].distance) {
+                    neighbors.push({ song: node.song, distance: dist });
+                    neighbors.sort((a, b) => a.distance - b.distance);
+                    if (neighbors.length > maxResults) neighbors.pop();
+                }
+
+                const checkInsideFirst = dist < node.radius;
+
+                if (checkInsideFirst) {
+                    this.search(song, maxResults, node.inside, neighbors);
+                    if (neighbors.length < maxResults || Math.abs(node.radius - dist) < neighbors[neighbors.length - 1].distance) {
+                        this.search(song, maxResults, node.outside, neighbors);
+                    }
+                } else {
+                    this.search(song, maxResults, node.outside, neighbors);
+                    if (neighbors.length < maxResults || Math.abs(node.radius - dist) < neighbors[neighbors.length - 1].distance) {
+                        this.search(song, maxResults, node.inside, neighbors);
+                    }
+                }
+
+                return neighbors;
+            }
+        }
+
+        const tree = new VPTree(songs, euclideanDistance);
+
+        function displaySongs(songs, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            songs.forEach(song => {
+                const songCard = document.createElement('div');
+                songCard.className = 'col-md-2 song-card';
+                songCard.innerHTML = `
+                    <img src="${song.image}" class="song-image" alt="${song.name}">
+                    <h5>${song.name}</h5>
+                    <p>Tempo: ${song.features[0]}, Pitch: ${song.features[1]}, Duración: ${song.features[2]}</p>
+                    <button class="btn btn-secondary" onclick="showSongDetails(${song.id})">Detalles</button>
+                    <button class="btn btn-primary" onclick="recommendSongs(${song.id})">Seleccionar</button>
+                `;
+                container.appendChild(songCard);
+            });
+            console.log("Songs displayed in", containerId); // Debugging
+        }
+
+        function showSongDetails(songId) {
+            const selectedSong = songs.find(song => song.id === songId);
+            const modalBody = document.getElementById('song-modal-body');
+            modalBody.innerHTML = `
+                <div class="text-center">
+                    <img src="${selectedSong.image}" class="song-image mb-3" alt="${selectedSong.name}">
+                    <h5>${selectedSong.name}</h5>
+                    <p>Tempo: ${selectedSong.features[0]}</p>
+                    <p>Pitch: ${selectedSong.features[1]}</p>
+                    <p>Duración: ${selectedSong.features[2]}</p>
+                </div>
+            `;
+            $('#songModal').modal('show');
+        }
+
+        function recommendSongs(songId) {
+            const selectedSong = songs.find(song => song.id === songId);
+            console.log("Selected Song:", selectedSong); // Debugging
+            const recommended = tree.search(selectedSong, 5);
+            console.log("Recommended Songs:", recommended); // Debugging
+            displaySongs(recommended.map(r => r.song), 'recommended-songs');
+
+            // Show alert if no recommendations found
+            const alert = document.getElementById('no-recommendations-alert');
+            if (recommended.length === 0) {
+                alert.style.display = 'block';
+            } else {
+                alert.style.display = 'none';
+            }
+        }
+
+        function clearRecommendations() {
+            displaySongs([], 'recommended-songs');
+            document.getElementById('no-recommendations-alert').style.display = 'none';
+        }
+
+        function filterSongs() {
+            const query = document.getElementById('search-bar').value.toLowerCase();
+            const filteredSongs = songs.filter(song => song.name.toLowerCase().includes(query));
+            displaySongs(filteredSongs, 'song-list');
+        }
+
+        document.getElementById('search-bar').addEventListener('input', filterSongs);
+
+        window.onload = () => {
+            displaySongs(songs, 'song-list');
+        };
+    </script>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+</body>
+</html>
